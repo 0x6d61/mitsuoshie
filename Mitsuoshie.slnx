@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Mitsuoshie.Core/Mitsuoshie.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mitsuoshie.Core.Tests/Mitsuoshie.Core.Tests.csproj" />
+  </Folder>
+</Solution>
