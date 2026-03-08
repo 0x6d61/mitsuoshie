@@ -46,8 +46,9 @@ project.fragment.lock.json
 coverage/
 TestResults/
 
-# Publish
+# Publish & Installer output
 publish/
+dist/
 
 # IDE
 .idea/

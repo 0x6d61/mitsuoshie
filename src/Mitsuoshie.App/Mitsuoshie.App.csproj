@@ -10,6 +10,11 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Mitsuoshie</AssemblyName>
+    <Product>Mitsuoshie</Product>
+    <Description>Windows向けハニートークン検知ツール</Description>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
   </PropertyGroup>
 
 </Project>
