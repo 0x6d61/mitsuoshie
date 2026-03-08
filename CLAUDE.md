@@ -9,7 +9,7 @@ Windows向けハニートークン検知ツール。
 
 | コンポーネント | 技術 |
 |--------------|------|
-| 言語 | C# / .NET 8 |
+| 言語 | C# / .NET 10 |
 | ファイルアクセス検知 | NTFS SACL + Security Event Log (Event ID 4663) |
 | SACL設定 | System.Security.AccessControl |
 | イベント購読 | System.Diagnostics.Eventing.Reader.EventLogWatcher |
