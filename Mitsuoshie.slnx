@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Mitsuoshie.App/Mitsuoshie.App.csproj" />
     <Project Path="src/Mitsuoshie.Core/Mitsuoshie.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
