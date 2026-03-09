@@ -110,7 +110,7 @@ public class HoneyDeployerTests : IDisposable
     }
 
     [Fact]
-    public void DeployAll_ReregistersExistingFiles()
+    public void DeployAll_SkipsExistingFiles()
     {
         // 1つだけ既存ファイルを配置
         var awsPath = Path.Combine(_testDir, @".aws\credentials.bak");

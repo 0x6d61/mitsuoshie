@@ -81,7 +81,7 @@ public class MitsuoshieServiceTests : IDisposable
     }
 
     [Fact]
-    public void DeployTokens_ReregistersExistingFiles()
+    public void DeployTokens_SkipsExistingFiles()
     {
         // 1つ先に配置（再インストールシナリオ）
         var awsPath = Path.Combine(_testDir, "profile", ".aws", "credentials.bak");

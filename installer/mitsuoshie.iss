@@ -104,8 +104,9 @@ begin
     Exit;
 
   // KeyPos の後にある ": " を探す（他のキーの値を誤取得しないよう）
+  // Length('"FilePath"') = 10
   ValStart := 0;
-  if KeyPos + 10 <= Length(Line) then
+  if KeyPos + Length('"FilePath"') <= Length(Line) then
     ValStart := Pos('": "', Copy(Line, KeyPos, Length(Line) - KeyPos + 1));
   if ValStart = 0 then
     Exit;

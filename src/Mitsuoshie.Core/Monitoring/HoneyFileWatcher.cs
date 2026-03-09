@@ -8,6 +8,10 @@ namespace Mitsuoshie.Core.Monitoring;
 /// SACL + Event ID 4663 が使えない場合のフォールバック。
 /// 注意: FileSystemWatcher はファイルの読み取り（open for read）を検知できない。
 /// 読み取りアクセスの検知には管理者権限 + SACL 監査が必要。
+///
+/// 制限: FSW 経由のイベントでは ProcessId=0, ProcessName="FileSystemWatcher" 固定のため、
+/// 重複抑制キーが同一になり、異なるプロセスによる同種アクセスが抑制期間内は1件に集約される。
+/// SACL モード（管理者権限）では実際の ProcessId/ProcessName が取得できるためこの制限はない。
 /// </summary>
 public class HoneyFileWatcher : IDisposable
 {

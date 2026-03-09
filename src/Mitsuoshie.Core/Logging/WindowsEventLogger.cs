@@ -10,8 +10,8 @@ public class WindowsEventLogger
 {
     private const string SourceName = "Mitsuoshie";
     private const string LogName = "Application";
-    private bool _sourceAvailable;
-    private bool _sourceChecked;
+    private volatile bool _sourceAvailable;
+    private volatile bool _sourceChecked;
 
     /// <summary>
     /// Windows Event Log にアラートを書き込む。

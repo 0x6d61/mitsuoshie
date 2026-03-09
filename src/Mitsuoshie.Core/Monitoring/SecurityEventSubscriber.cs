@@ -60,7 +60,7 @@ public class SecurityEventSubscriber
 
     internal static string GetAccessType(string accessMask)
     {
-        if (!TryParseAccessMask(accessMask, out var mask))
+        if (!AccessMaskParser.TryParse(accessMask, out var mask))
             return $"Unknown({accessMask})";
 
         // フラグを優先度順にチェック（最も重要な操作を優先）
@@ -71,20 +71,6 @@ public class SecurityEventSubscriber
         if ((mask & 0x80) != 0) return "ReadAttributes";
 
         return $"Unknown({accessMask})";
-    }
-
-    private static bool TryParseAccessMask(string accessMask, out int mask)
-    {
-        mask = 0;
-        if (string.IsNullOrEmpty(accessMask)) return false;
-
-        if (accessMask.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            return int.TryParse(accessMask.AsSpan(2),
-                System.Globalization.NumberStyles.HexNumber, null, out mask);
-        }
-
-        return int.TryParse(accessMask, out mask);
     }
 
     private static string ComputeCurrentHash(string filePath)

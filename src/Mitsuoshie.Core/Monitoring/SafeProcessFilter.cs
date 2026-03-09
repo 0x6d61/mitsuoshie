@@ -44,19 +44,8 @@ public class SafeProcessFilter
     /// </summary>
     private static bool IsReadAttributesOnly(string accessMask)
     {
-        if (string.IsNullOrEmpty(accessMask)) return false;
-
-        int mask;
-        if (accessMask.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!int.TryParse(accessMask.AsSpan(2),
-                System.Globalization.NumberStyles.HexNumber, null, out mask))
-                return false;
-        }
-        else if (!int.TryParse(accessMask, out mask))
-        {
+        if (!AccessMaskParser.TryParse(accessMask, out var mask))
             return false;
-        }
 
         // ReadAttributes ビットが立っていて、かつデータアクセスビットが立っていない
         const int dataAccessBits = 0x1 | 0x2 | 0x4 | 0x10000; // Read|Write|Append|Delete
