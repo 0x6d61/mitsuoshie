@@ -1,5 +1,6 @@
 using System.Diagnostics.Eventing.Reader;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Mitsuoshie.Core;
 using Mitsuoshie.Core.Models;
 using Mitsuoshie.Core.Monitoring;
@@ -115,9 +116,13 @@ public class TrayApplicationContext : ApplicationContext
     private void OnAlertRaised(MitsuoshieAlert alert)
     {
         // バックグラウンドスレッドから呼ばれるため、UIスレッドにマーシャリング
-        if (_notifyIcon.ContextMenuStrip?.InvokeRequired == true)
+        var strip = _notifyIcon.ContextMenuStrip;
+        if (strip is null || strip.IsDisposed)
+            return;
+
+        if (strip.InvokeRequired)
         {
-            _notifyIcon.ContextMenuStrip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
+            strip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
         }
         else
         {
@@ -248,6 +253,26 @@ public class TrayApplicationContext : ApplicationContext
         return int.TryParse(str, out var dec) ? dec : 0;
     }
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
+    /// <summary>
+    /// Bitmap から Icon を作成する。GetHicon() で取得した HICON は
+    /// Icon にコピーした後 DestroyIcon で解放する。
+    /// </summary>
+    private static Icon CreateIconFromBitmap(Bitmap bmp)
+    {
+        var hIcon = bmp.GetHicon();
+        try
+        {
+            return (Icon)Icon.FromHandle(hIcon).Clone();
+        }
+        finally
+        {
+            DestroyIcon(hIcon);
+        }
+    }
+
     /// <summary>
     /// 埋め込みリソースからアプリアイコンを読み込む。
     /// 読み込みに失敗した場合はフォールバックアイコンを生成する。
@@ -267,11 +292,11 @@ public class TrayApplicationContext : ApplicationContext
         }
 
         // フォールバック: 緑丸アイコン
-        var bmp = new Bitmap(16, 16);
+        using var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Green, 1, 1, 14, 14);
-        return Icon.FromHandle(bmp.GetHicon());
+        return CreateIconFromBitmap(bmp);
     }
 
     /// <summary>
@@ -279,12 +304,12 @@ public class TrayApplicationContext : ApplicationContext
     /// </summary>
     private static Icon CreateAlertIcon()
     {
-        var bmp = new Bitmap(16, 16);
+        using var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Red, 1, 1, 14, 14);
         g.DrawString("!", new Font("Arial", 10, FontStyle.Bold), Brushes.White, 2, 0);
-        return Icon.FromHandle(bmp.GetHicon());
+        return CreateIconFromBitmap(bmp);
     }
 
     protected override void Dispose(bool disposing)

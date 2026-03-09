@@ -84,11 +84,15 @@ Type: files; Name: "{app}\settingsdir.txt"
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   SettingsDir: String;
+  I: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
     SettingsDir := ExpandConstant('{localappdata}\Mitsuoshie');
     SaveStringToFile(ExpandConstant('{app}\settingsdir.txt'), SettingsDir, False);
+    // settingsdir.txt のアクセス権を管理者とSYSTEMのみに制限（ユーザー名パスの情報漏洩防止）
+    Exec('icacls', ExpandConstant('"{app}\settingsdir.txt" /inheritance:r /grant:r SYSTEM:(R) Administrators:(R)'),
+      '', SW_HIDE, ewWaitUntilTerminated, I);
   end;
 end;
 

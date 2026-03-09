@@ -32,6 +32,12 @@ public class AlertGenerator
     {
         var key = $"{alert.ProcessName}|{alert.ProcessId}|{alert.EventType}|{alert.HoneyFile}";
 
+        // 期限切れエントリの定期クリーンアップ（100件超で実行）
+        if (_lastAlertTimes.Count > 100)
+        {
+            PruneExpiredEntries();
+        }
+
         if (_lastAlertTimes.TryGetValue(key, out var lastTime))
         {
             if (DateTime.UtcNow - lastTime < _suppressDuration)
@@ -40,5 +46,17 @@ public class AlertGenerator
 
         _lastAlertTimes[key] = DateTime.UtcNow;
         return false;
+    }
+
+    private void PruneExpiredEntries()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var kvp in _lastAlertTimes)
+        {
+            if (now - kvp.Value >= _suppressDuration)
+            {
+                _lastAlertTimes.TryRemove(kvp.Key, out _);
+            }
+        }
     }
 }

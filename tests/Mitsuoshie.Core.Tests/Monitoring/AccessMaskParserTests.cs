@@ -9,6 +9,8 @@ public class AccessMaskParserTests
     [InlineData("0x80", true, 0x80)]
     [InlineData("0x10000", true, 0x10000)]
     [InlineData("0x10002", true, 0x10002)]
+    [InlineData("0x80000000", true, unchecked((int)0x80000000))] // GENERIC_READ（bit31）
+    [InlineData("0xFFFFFFFF", true, unchecked((int)0xFFFFFFFF))] // 全ビット
     [InlineData("128", true, 128)]
     [InlineData("", false, 0)]
     [InlineData("invalid", false, 0)]

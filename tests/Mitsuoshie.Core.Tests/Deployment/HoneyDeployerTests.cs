@@ -63,6 +63,8 @@ public class HoneyDeployerTests : IDisposable
         // 既存ファイルのハッシュが計算されている
         var expectedHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("existing content")));
         Assert.Equal(expectedHash, result.OriginalHash);
+        // DeployedAt はファイルの作成日時を使用（現在時刻ではない）
+        Assert.Equal(File.GetCreationTimeUtc(filePath), result.DeployedAt);
     }
 
     [Fact]

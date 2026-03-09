@@ -33,7 +33,7 @@ public class HoneyDeployer
                 FilePath: fullPath,
                 HoneyType: type,
                 OriginalHash: existingHash,
-                DeployedAt: DateTime.UtcNow
+                DeployedAt: File.GetCreationTimeUtc(fullPath)
             );
         }
 

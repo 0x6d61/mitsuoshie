@@ -10,6 +10,7 @@ public class WindowsEventLogger
 {
     private const string SourceName = "Mitsuoshie";
     private const string LogName = "Application";
+    private readonly object _initLock = new();
     private volatile bool _sourceAvailable;
     private volatile bool _sourceChecked;
 
@@ -86,23 +87,26 @@ public class WindowsEventLogger
     {
         if (_sourceChecked) return _sourceAvailable;
 
-        // _sourceAvailable を先に設定してから _sourceChecked を true にすることで、
-        // 他スレッドが _sourceChecked=true を見た時点で _sourceAvailable が確定している
-        try
+        lock (_initLock)
         {
-            if (!EventLog.SourceExists(SourceName))
-            {
-                EventLog.CreateEventSource(SourceName, LogName);
-            }
-            _sourceAvailable = true;
-        }
-        catch (System.Security.SecurityException)
-        {
-            // 非管理者セッションでは EventLog ソースの確認・作成に失敗する
-            _sourceAvailable = false;
-        }
+            if (_sourceChecked) return _sourceAvailable;
 
-        _sourceChecked = true;
-        return _sourceAvailable;
+            try
+            {
+                if (!EventLog.SourceExists(SourceName))
+                {
+                    EventLog.CreateEventSource(SourceName, LogName);
+                }
+                _sourceAvailable = true;
+            }
+            catch (System.Security.SecurityException)
+            {
+                // 非管理者セッションでは EventLog ソースの確認・作成に失敗する
+                _sourceAvailable = false;
+            }
+
+            _sourceChecked = true;
+            return _sourceAvailable;
+        }
     }
 }
