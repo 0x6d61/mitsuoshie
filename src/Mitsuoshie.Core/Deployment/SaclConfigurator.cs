@@ -83,7 +83,8 @@ public static class SaclConfigurator
         var psi = new ProcessStartInfo
         {
             FileName = "auditpol",
-            Arguments = "/set /subcategory:\"File System\" /success:enable",
+            // GUID指定でロケール非依存（"File System" は日本語版では "ファイル システム"）
+            Arguments = "/set /subcategory:{0CCE921D-69AE-11D9-BED3-505054503030} /success:enable",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
