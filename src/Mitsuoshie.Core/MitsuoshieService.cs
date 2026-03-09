@@ -33,15 +33,25 @@ public class MitsuoshieService : IDisposable
     }
 
     /// <summary>
-    /// 罠ファイルを配置し、設定を保存する。
+    /// 罠ファイルを配置し、SACL を設定して設定を保存する。
+    /// 戻り値は全トークン数（新規＋既存）。
     /// </summary>
-    public List<DeployedToken> DeployTokens()
+    public int DeployTokens()
     {
-        var results = _deployer.DeployAll();
+        // 管理者権限がある場合、ファイルシステム監査を有効化
+        TryEnableAuditing();
 
-        foreach (var token in results)
+        var newTokens = _deployer.DeployAll();
+
+        foreach (var token in newTokens)
         {
             _store.AddToken(token);
+        }
+
+        // 全トークン（新規＋既存）に SACL を設定
+        foreach (var path in _store.GetAllPaths())
+        {
+            TrySetSacl(path);
         }
 
         _store.Save();
@@ -49,7 +59,7 @@ public class MitsuoshieService : IDisposable
         // フィルタとサブスクライバを再構築
         RebuildSubscriber();
 
-        return results;
+        return _store.Tokens.Count;
     }
 
     /// <summary>
@@ -98,6 +108,31 @@ public class MitsuoshieService : IDisposable
     public void Dispose()
     {
         Stop();
+    }
+
+    private void TryEnableAuditing()
+    {
+        try
+        {
+            if (SaclConfigurator.IsAdministrator())
+                SaclConfigurator.EnableFileSystemAuditing();
+        }
+        catch
+        {
+            // 監査ポリシー有効化に失敗しても続行（インストーラーで設定済みの場合がある）
+        }
+    }
+
+    private static void TrySetSacl(string filePath)
+    {
+        try
+        {
+            SaclConfigurator.SetAuditRule(filePath);
+        }
+        catch
+        {
+            // SACL 設定には管理者権限が必要。失敗しても続行。
+        }
     }
 
     private void RebuildSubscriber()

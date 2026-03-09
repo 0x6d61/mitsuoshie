@@ -42,10 +42,11 @@ public class MitsuoshieServiceTests : IDisposable
         var config = CreateConfig();
         var service = new MitsuoshieService(config);
 
-        var results = service.DeployTokens();
+        var totalCount = service.DeployTokens();
 
-        Assert.NotEmpty(results);
-        foreach (var token in results)
+        Assert.True(totalCount > 0);
+        var loaded = SettingsStore.Load(_settingsPath);
+        foreach (var token in loaded.Tokens)
         {
             Assert.True(File.Exists(token.FilePath));
         }
@@ -65,7 +66,22 @@ public class MitsuoshieServiceTests : IDisposable
     }
 
     [Fact]
-    public void DeployTokens_SkipsExistingFiles()
+    public void DeployTokens_ReturnsTotalCount_IncludingExisting()
+    {
+        var config = CreateConfig();
+        var service = new MitsuoshieService(config);
+
+        // 1回目: 全罠ファイル配置
+        var firstCount = service.DeployTokens();
+        Assert.True(firstCount > 0);
+
+        // 2回目: 既に存在するので新規は0だが、合計数は同じ
+        var secondCount = service.DeployTokens();
+        Assert.Equal(firstCount, secondCount);
+    }
+
+    [Fact]
+    public void DeployTokens_SkipsExistingFiles_ButCountsInTotal()
     {
         // 1つ先に配置
         var awsPath = Path.Combine(_testDir, "profile", ".aws", "credentials.bak");
@@ -74,9 +90,13 @@ public class MitsuoshieServiceTests : IDisposable
 
         var config = CreateConfig();
         var service = new MitsuoshieService(config);
-        var results = service.DeployTokens();
+        var totalCount = service.DeployTokens();
 
-        Assert.DoesNotContain(results, t => t.HoneyType == HoneyTokenType.AwsCredential);
+        // AWSは既存ファイルがあるのでスキップされるが、他のトークンは配置される
+        var loaded = SettingsStore.Load(_settingsPath);
+        Assert.DoesNotContain(loaded.Tokens, t => t.HoneyType == HoneyTokenType.AwsCredential);
+        // 合計数はAWS以外のトークン数
+        Assert.Equal(loaded.Tokens.Count, totalCount);
     }
 
     [Fact]

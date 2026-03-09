@@ -95,6 +95,32 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void GetAllPaths_ReturnsAllRegisteredPaths()
+    {
+        var store = new SettingsStore(_settingsPath);
+        store.AddToken(new DeployedToken("path1", HoneyTokenType.AwsCredential, "hash1", DateTime.UtcNow));
+        store.AddToken(new DeployedToken("path2", HoneyTokenType.SshKey, "hash2", DateTime.UtcNow));
+        store.AddToken(new DeployedToken("path3", HoneyTokenType.EnvFile, "hash3", DateTime.UtcNow));
+
+        var paths = store.GetAllPaths();
+
+        Assert.Equal(3, paths.Count);
+        Assert.Contains("path1", paths);
+        Assert.Contains("path2", paths);
+        Assert.Contains("path3", paths);
+    }
+
+    [Fact]
+    public void GetAllPaths_ReturnsEmpty_WhenNoTokens()
+    {
+        var store = new SettingsStore(_settingsPath);
+
+        var paths = store.GetAllPaths();
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
     public void Save_ProducesValidJson()
     {
         var store = new SettingsStore(_settingsPath);
