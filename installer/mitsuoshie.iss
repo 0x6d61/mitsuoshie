@@ -48,7 +48,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 ; インストール後に監査ポリシーを有効化（GUID指定でロケール非依存）
-Filename: "auditpol"; Parameters: "/set /subcategory:""{{0CCE921D-69AE-11D9-BED3-505054503030}}"" /success:enable"; \
+Filename: "auditpol"; Parameters: "/set /subcategory:""{{0CCE921D-69AE-11D9-BED3-505054503030}"" /success:enable"; \
   Flags: runhidden waituntilterminated; StatusMsg: "ファイルシステム監査ポリシーを有効化中..."
 
 ; Task Scheduler にスタートアップ登録（現在のユーザーで最高権限タスク作成）

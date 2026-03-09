@@ -85,8 +85,9 @@ public class WindowsEventLogger
     private bool TryEnsureSource()
     {
         if (_sourceChecked) return _sourceAvailable;
-        _sourceChecked = true;
 
+        // _sourceAvailable を先に設定してから _sourceChecked を true にすることで、
+        // 他スレッドが _sourceChecked=true を見た時点で _sourceAvailable が確定している
         try
         {
             if (!EventLog.SourceExists(SourceName))
@@ -101,6 +102,7 @@ public class WindowsEventLogger
             _sourceAvailable = false;
         }
 
+        _sourceChecked = true;
         return _sourceAvailable;
     }
 }
