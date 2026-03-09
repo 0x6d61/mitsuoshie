@@ -60,9 +60,9 @@ Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\
 Filename: "powershell"; Parameters: "-NoProfile -Command ""if (-not [System.Diagnostics.EventLog]::SourceExists('Mitsuoshie')) {{ [System.Diagnostics.EventLog]::CreateEventSource('Mitsuoshie', 'Application') }}"""; \
   Flags: runhidden waituntilterminated; StatusMsg: "Windows Event Log ソースを登録中..."
 
-; インストール完了後にアプリを起動
+; インストール完了後にアプリを起動（管理者権限でSACL設定を行うため昇格したまま起動）
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} を今すぐ起動する"; \
-  Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
+  Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 ; アンインストール前に Mitsuoshie を停止する（未起動時のエラーを無視）
@@ -123,34 +123,12 @@ begin
   Result := Value;
 end;
 
-// ディレクトリが空かどうかチェック
-function IsDirEmpty(const DirPath: String): Boolean;
-var
-  FindRec: TFindRec;
-begin
-  Result := True;
-  if FindFirst(DirPath + '\*', FindRec) then
-  begin
-    try
-      repeat
-        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
-        begin
-          Result := False;
-          Break;
-        end;
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-end;
-
 // アンインストール時に罠ファイルを削除するか確認。
 // settingsdir.txt からインストール時のユーザーの設定ディレクトリを読み取り、
 // 管理者プロファイルと一般ユーザーのプロファイルの不一致問題を回避。
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  SettingsPath, SettingsDirFile, ParentDir, FilePath: String;
+  SettingsPath, SettingsDirFile, FilePath: String;
   Lines: TArrayOfString;
   I: Integer;
   DeleteHoney: Boolean;
@@ -188,11 +166,7 @@ begin
       if (FilePath <> '') and FileExists(FilePath) then
       begin
         DeleteFile(FilePath);
-
-        // 親ディレクトリが空なら削除（.secure, .confidential 等）
-        ParentDir := ExtractFileDir(FilePath);
-        if DirExists(ParentDir) and IsDirEmpty(ParentDir) then
-          RemoveDir(ParentDir);
+        // 親ディレクトリは削除しない（.ssh, .aws 等にユーザーの実ファイルがある可能性）
       end;
     end;
   end;

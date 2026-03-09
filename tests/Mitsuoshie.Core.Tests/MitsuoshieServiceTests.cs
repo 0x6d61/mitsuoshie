@@ -92,9 +92,9 @@ public class MitsuoshieServiceTests : IDisposable
         var service = new MitsuoshieService(config);
         var totalCount = service.DeployTokens();
 
-        // 既存ファイルも再登録され、全トークンが監視対象になる
+        // 既存ファイルはスキップされ、新規トークンのみが監視対象になる
         var loaded = SettingsStore.Load(_settingsPath);
-        Assert.Contains(loaded.Tokens, t => t.HoneyType == HoneyTokenType.AwsCredential);
+        Assert.DoesNotContain(loaded.Tokens, t => t.HoneyType == HoneyTokenType.AwsCredential);
         Assert.Equal(loaded.Tokens.Count, totalCount);
     }
 
