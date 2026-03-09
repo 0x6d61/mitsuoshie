@@ -11,12 +11,19 @@ public class TrayApplicationContext : ApplicationContext
 {
     private readonly NotifyIcon _notifyIcon;
     private readonly MitsuoshieService _service;
+    private readonly IStartupManager _startupManager;
     private readonly Icon _appIcon;
     private readonly Icon _alertIcon;
     private EventLogWatcher? _eventWatcher;
 
     public TrayApplicationContext(MitsuoshieServiceConfig config)
+        : this(config, new StartupManager())
     {
+    }
+
+    public TrayApplicationContext(MitsuoshieServiceConfig config, IStartupManager startupManager)
+    {
+        _startupManager = startupManager;
         _service = new MitsuoshieService(config);
         _service.AlertRaised += OnAlertRaised;
 
@@ -38,6 +45,12 @@ public class TrayApplicationContext : ApplicationContext
     {
         try
         {
+            // スタートアップに自動登録（未登録の場合のみ）
+            if (!_startupManager.IsRegistered())
+            {
+                _startupManager.Register();
+            }
+
             // 罠ファイル配置 + SACL設定（管理者時）+ FileSystemWatcher開始
             var totalTokens = _service.DeployTokens();
 
@@ -205,6 +218,8 @@ public class TrayApplicationContext : ApplicationContext
             }
         });
         menu.Items.Add(checkItem);
+
+        menu.Items.Add(StartupMenuHelper.CreateStartupMenuItem(_startupManager));
 
         menu.Items.Add(new ToolStripSeparator());
 
