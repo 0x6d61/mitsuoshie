@@ -56,6 +56,10 @@ Filename: "auditpol"; Parameters: "/set /subcategory:""File System"" /success:en
 Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /RU ""{username}"" /F"; \
   Flags: runhidden waituntilterminated; Tasks: startup; StatusMsg: "スタートアップタスクを登録中..."
 
+; EventSource を事前登録（管理者権限で実行されるため成功する）
+Filename: "powershell"; Parameters: "-NoProfile -Command ""if (-not [System.Diagnostics.EventLog]::SourceExists('Mitsuoshie')) {{ [System.Diagnostics.EventLog]::CreateEventSource('Mitsuoshie', 'Application') }}"""; \
+  Flags: runhidden waituntilterminated; StatusMsg: "Windows Event Log ソースを登録中..."
+
 ; インストール完了後にアプリを起動
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} を今すぐ起動する"; \
   Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
@@ -72,8 +76,22 @@ Filename: "cmd"; Parameters: "/c schtasks /Delete /TN ""Mitsuoshie"" /F >nul 2>&
 [UninstallDelete]
 ; Mitsuoshie のローカルデータを削除
 Type: filesandordirs; Name: "{localappdata}\Mitsuoshie"
+Type: files; Name: "{app}\settingsdir.txt"
 
 [Code]
+// インストール後に settings.json のパスをインストール先に記録する。
+// アンインストール時に {localappdata} が管理者プロファイルを指す問題を回避。
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  SettingsDir: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    SettingsDir := ExpandConstant('{localappdata}\Mitsuoshie');
+    SaveStringToFile(ExpandConstant('{app}\settingsdir.txt'), SettingsDir, False);
+  end;
+end;
+
 // settings.json の各行から "FilePath" の値を抽出する。
 function ExtractPathFromLine(const Line: String): String;
 var
@@ -128,18 +146,27 @@ begin
 end;
 
 // アンインストール時に罠ファイルを削除するか確認。
-// ハードコードせず settings.json から実際のパスを読み取ることで
+// settingsdir.txt からインストール時のユーザーの設定ディレクトリを読み取り、
 // 管理者プロファイルと一般ユーザーのプロファイルの不一致問題を回避。
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  SettingsPath, ParentDir, FilePath: String;
+  SettingsPath, SettingsDirFile, ParentDir, FilePath: String;
   Lines: TArrayOfString;
   I: Integer;
   DeleteHoney: Boolean;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    SettingsPath := ExpandConstant('{localappdata}') + '\Mitsuoshie\settings.json';
+    // インストール時に保存した設定ディレクトリパスを読み取る
+    SettingsDirFile := ExpandConstant('{app}\settingsdir.txt');
+    SettingsPath := '';
+    if FileExists(SettingsDirFile) then
+    begin
+      if LoadStringsFromFile(SettingsDirFile, Lines) and (GetArrayLength(Lines) > 0) then
+        SettingsPath := Lines[0] + '\settings.json';
+    end;
+    if SettingsPath = '' then
+      SettingsPath := ExpandConstant('{localappdata}') + '\Mitsuoshie\settings.json';
 
     if not FileExists(SettingsPath) then
       Exit;
