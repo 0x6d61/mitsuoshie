@@ -57,8 +57,12 @@ public class HoneyDeployerTests : IDisposable
 
         // 既存ファイルの内容は上書きされない
         Assert.Equal("existing content", File.ReadAllText(filePath));
-        // 既存ファイルがある場合は null を返す（上書き防止）
-        Assert.Null(result);
+        // 既存ファイルでも監視登録用に DeployedToken を返す（再インストール対応）
+        Assert.NotNull(result);
+        Assert.Equal(HoneyTokenType.AwsCredential, result.HoneyType);
+        // 既存ファイルのハッシュが計算されている
+        var expectedHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("existing content")));
+        Assert.Equal(expectedHash, result.OriginalHash);
     }
 
     [Fact]
@@ -110,19 +114,19 @@ public class HoneyDeployerTests : IDisposable
     }
 
     [Fact]
-    public void DeployAll_SkipsExistingFiles()
+    public void DeployAll_ReregistersExistingFiles()
     {
-        // 1つだけ既存ファイルを配置
+        // 1つだけ既存ファイルを配置（再インストールシナリオ）
         var awsPath = Path.Combine(_testDir, @".aws\credentials.bak");
         Directory.CreateDirectory(Path.GetDirectoryName(awsPath)!);
         File.WriteAllText(awsPath, "existing");
 
         var results = _deployer.DeployAll();
 
-        // 既存ファイルはスキップされるので、残りのトークンのみ返される
+        // 既存ファイルも含め全トークンが返される（監視再登録）
         var tokenTypes = Enum.GetValues<HoneyTokenType>();
-        Assert.Equal(tokenTypes.Length - 1, results.Count);
-        Assert.DoesNotContain(results, r => r.HoneyType == HoneyTokenType.AwsCredential);
+        Assert.Equal(tokenTypes.Length, results.Count);
+        Assert.Contains(results, r => r.HoneyType == HoneyTokenType.AwsCredential);
         // 既存ファイルの内容は上書きされない
         Assert.Equal("existing", File.ReadAllText(awsPath));
     }
