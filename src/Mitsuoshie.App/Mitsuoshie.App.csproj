@@ -12,7 +12,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Mitsuoshie</AssemblyName>
     <Product>Mitsuoshie</Product>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
     <Description>Windows向けハニートークン検知ツール</Description>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>

@@ -2,7 +2,7 @@
 ; ハニートークン検知ツール インストーラー
 
 #define MyAppName "Mitsuoshie"
-#define MyAppVersion "0.0.1"
+#define MyAppVersion "0.0.2"
 #define MyAppPublisher "0x6d61"
 #define MyAppURL "https://github.com/0x6d61/mitsuoshie"
 #define MyAppExeName "Mitsuoshie.exe"
