@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -12,7 +13,7 @@ public class SettingsStore
     };
 
     private readonly string _filePath;
-    private readonly Dictionary<string, DeployedToken> _tokensByPath = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DeployedToken> _tokensByPath = new(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyList<DeployedToken> Tokens => _tokensByPath.Values.ToList();
 

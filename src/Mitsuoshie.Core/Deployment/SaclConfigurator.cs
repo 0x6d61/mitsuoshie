@@ -83,7 +83,8 @@ public static class SaclConfigurator
         var psi = new ProcessStartInfo
         {
             FileName = "auditpol",
-            Arguments = "/set /subcategory:\"File System\" /success:enable",
+            // GUID指定でロケール非依存（"File System" は日本語版では "ファイル システム"）
+            Arguments = "/set /subcategory:\"{0CCE921D-69AE-11D9-BED3-505054503030}\" /success:enable",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -91,11 +92,15 @@ public static class SaclConfigurator
         };
 
         using var process = Process.Start(psi);
-        process?.WaitForExit(TimeSpan.FromSeconds(30));
+        if (process is null) return;
 
-        if (process?.ExitCode != 0)
+        // stdout/stderr を先に読み切ってから WaitForExit（デッドロック防止）
+        var error = process.StandardError.ReadToEnd();
+        process.StandardOutput.ReadToEnd();
+        process.WaitForExit(TimeSpan.FromSeconds(30));
+
+        if (process.ExitCode != 0)
         {
-            var error = process?.StandardError.ReadToEnd();
             throw new InvalidOperationException(
                 $"監査ポリシーの有効化に失敗しました: {error}");
         }

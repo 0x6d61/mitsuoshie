@@ -120,6 +120,9 @@ public class SecurityEventSubscriberTests
     [InlineData("0x2", "WriteData")]
     [InlineData("0x4", "AppendData")]
     [InlineData("0x10000", "Delete")]
+    [InlineData("0x81", "ReadData")]     // ReadAttributes + ReadData → ReadData
+    [InlineData("0x10002", "Delete")]    // Delete + WriteData → Delete（優先度順）
+    [InlineData("0x3", "WriteData")]     // ReadData + WriteData → WriteData（優先度順）
     public void ProcessEvent_CorrectAccessType(string accessMask, string expectedEventType)
     {
         var subscriber = new SecurityEventSubscriber(_store, _filter);

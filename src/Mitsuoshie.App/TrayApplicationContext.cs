@@ -1,5 +1,6 @@
 using System.Diagnostics.Eventing.Reader;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Mitsuoshie.Core;
 using Mitsuoshie.Core.Models;
 using Mitsuoshie.Core.Monitoring;
@@ -49,7 +50,7 @@ public class TrayApplicationContext : ApplicationContext
                 StartEventLogWatcher();
             }
 
-            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視（書込/削除のみ）";
             UpdateStatus($"{mode}（罠ファイル: {totalTokens}個）");
         }
         catch (Exception ex)
@@ -98,7 +99,7 @@ public class TrayApplicationContext : ApplicationContext
             {
                 ObjectName = record.Properties[6]?.Value?.ToString() ?? "",
                 AccessMask = record.Properties[9]?.Value?.ToString() ?? "",
-                ProcessId = Convert.ToInt32(record.Properties[10]?.Value ?? 0),
+                ProcessId = ParseProcessId(record.Properties[10]?.Value),
                 ProcessName = record.Properties[11]?.Value?.ToString() ?? "",
                 UserName = record.Properties[1]?.Value?.ToString() ?? "",
                 Timestamp = record.TimeCreated?.ToUniversalTime()
@@ -114,7 +115,30 @@ public class TrayApplicationContext : ApplicationContext
 
     private void OnAlertRaised(MitsuoshieAlert alert)
     {
-        // UIスレッドで実行
+        // バックグラウンドスレッドから呼ばれるため、UIスレッドにマーシャリング
+        var strip = _notifyIcon.ContextMenuStrip;
+        if (strip is null || strip.IsDisposed)
+            return;
+
+        try
+        {
+            if (strip.InvokeRequired)
+            {
+                strip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
+            }
+            else
+            {
+                OnAlertRaisedOnUiThread(alert);
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            // シャットダウン中に strip が破棄された場合は無視
+        }
+    }
+
+    private void OnAlertRaisedOnUiThread(MitsuoshieAlert alert)
+    {
         _notifyIcon.Icon = _alertIcon;
         _notifyIcon.Text = $"Mitsuoshie — 検知あり！ {alert.ProcessName}";
 
@@ -162,7 +186,7 @@ public class TrayApplicationContext : ApplicationContext
         var redeployItem = new ToolStripMenuItem("罠を再配置", null, (_, _) =>
         {
             var totalTokens = _service.DeployTokens();
-            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視（書込/削除のみ）";
             UpdateStatus($"{mode}（罠ファイル: {totalTokens}個 再配置）");
         });
         menu.Items.Add(redeployItem);
@@ -216,6 +240,47 @@ public class TrayApplicationContext : ApplicationContext
     }
 
     /// <summary>
+    /// Event ID 4663 の ProcessId を安全にパースする。
+    /// 値は int、long、または "0x1A4" のような hex 文字列の場合がある。
+    /// </summary>
+    private static int ParseProcessId(object? value)
+    {
+        if (value is null) return 0;
+        if (value is int i) return i;
+        if (value is long l) return unchecked((int)l);
+        if (value is ulong ul) return unchecked((int)ul);
+
+        var str = value.ToString() ?? "";
+        if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            return int.TryParse(str.AsSpan(2), System.Globalization.NumberStyles.HexNumber, null, out var hex)
+                ? hex : 0;
+        }
+
+        return int.TryParse(str, out var dec) ? dec : 0;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
+    /// <summary>
+    /// Bitmap から Icon を作成する。GetHicon() で取得した HICON は
+    /// Icon にコピーした後 DestroyIcon で解放する。
+    /// </summary>
+    private static Icon CreateIconFromBitmap(Bitmap bmp)
+    {
+        var hIcon = bmp.GetHicon();
+        try
+        {
+            return (Icon)Icon.FromHandle(hIcon).Clone();
+        }
+        finally
+        {
+            DestroyIcon(hIcon);
+        }
+    }
+
+    /// <summary>
     /// 埋め込みリソースからアプリアイコンを読み込む。
     /// 読み込みに失敗した場合はフォールバックアイコンを生成する。
     /// </summary>
@@ -234,11 +299,11 @@ public class TrayApplicationContext : ApplicationContext
         }
 
         // フォールバック: 緑丸アイコン
-        var bmp = new Bitmap(16, 16);
+        using var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Green, 1, 1, 14, 14);
-        return Icon.FromHandle(bmp.GetHicon());
+        return CreateIconFromBitmap(bmp);
     }
 
     /// <summary>
@@ -246,12 +311,13 @@ public class TrayApplicationContext : ApplicationContext
     /// </summary>
     private static Icon CreateAlertIcon()
     {
-        var bmp = new Bitmap(16, 16);
+        using var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Red, 1, 1, 14, 14);
-        g.DrawString("!", new Font("Arial", 10, FontStyle.Bold), Brushes.White, 2, 0);
-        return Icon.FromHandle(bmp.GetHicon());
+        using var font = new Font("Arial", 10, FontStyle.Bold);
+        g.DrawString("!", font, Brushes.White, 2, 0);
+        return CreateIconFromBitmap(bmp);
     }
 
     protected override void Dispose(bool disposing)
@@ -261,6 +327,8 @@ public class TrayApplicationContext : ApplicationContext
             _eventWatcher?.Dispose();
             _service.Dispose();
             _notifyIcon.Dispose();
+            _appIcon.Dispose();
+            _alertIcon.Dispose();
         }
         base.Dispose(disposing);
     }

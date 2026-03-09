@@ -2,7 +2,7 @@ namespace Mitsuoshie.Core.Monitoring;
 
 public class SafeProcessFilter
 {
-    private const string ReadAttributesMask = "0x80";
+    private const int ReadAttributesFlag = 0x80;
 
     private readonly HashSet<string> _safeProcessNames;
     private readonly int _currentProcessId;
@@ -26,7 +26,7 @@ public class SafeProcessFilter
             return true;
 
         // ReadAttributes (0x80) のみのアクセスは常に除外（フォルダ表示等）
-        if (accessMask == ReadAttributesMask)
+        if (IsReadAttributesOnly(accessMask))
             return true;
 
         var processName = Path.GetFileName(processPath);
@@ -35,8 +35,20 @@ public class SafeProcessFilter
         if (_safeProcessNames.Contains(processName))
             return true;
 
-        // explorer.exe は ReadAttributes のみ除外（上で処理済み）
-        // それ以外のアクセスマスクならアラート対象
         return false;
+    }
+
+    /// <summary>
+    /// AccessMask が ReadAttributes (0x80) のみかどうかを判定する。
+    /// 複合フラグにも対応。
+    /// </summary>
+    private static bool IsReadAttributesOnly(string accessMask)
+    {
+        if (!AccessMaskParser.TryParse(accessMask, out var mask))
+            return false;
+
+        // ReadAttributes ビットが立っていて、かつデータアクセスビットが立っていない
+        const int dataAccessBits = 0x1 | 0x2 | 0x4 | 0x20 | 0x10000; // Read|Write|Append|Execute|Delete
+        return (mask & ReadAttributesFlag) != 0 && (mask & dataAccessBits) == 0;
     }
 }

@@ -7,6 +7,7 @@ namespace Mitsuoshie.Core.Logging;
 public class SysmonJsonLogger
 {
     private readonly string _logPath;
+    private readonly long _maxLogSizeBytes;
     private readonly object _writeLock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -15,9 +16,12 @@ public class SysmonJsonLogger
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public SysmonJsonLogger(string logPath)
+    private const long DefaultMaxLogSizeBytes = 10 * 1024 * 1024; // 10 MB
+
+    public SysmonJsonLogger(string logPath, long maxLogSizeBytes = DefaultMaxLogSizeBytes)
     {
         _logPath = logPath ?? throw new ArgumentNullException(nameof(logPath));
+        _maxLogSizeBytes = maxLogSizeBytes;
     }
 
     /// <summary>
@@ -59,8 +63,26 @@ public class SysmonJsonLogger
 
         lock (_writeLock)
         {
+            RotateIfNeeded();
             File.AppendAllText(_logPath, json + Environment.NewLine);
         }
+    }
+
+    /// <summary>
+    /// ログファイルが上限サイズを超えた場合、.bak にリネームして新規ファイルに切り替える。
+    /// </summary>
+    private void RotateIfNeeded()
+    {
+        if (!File.Exists(_logPath)) return;
+
+        var fileInfo = new FileInfo(_logPath);
+        if (fileInfo.Length < _maxLogSizeBytes) return;
+
+        var bakPath = _logPath + ".bak";
+        // 既存の .bak があれば上書き（最大2世代保持）
+        if (File.Exists(bakPath))
+            File.Delete(bakPath);
+        File.Move(_logPath, bakPath);
     }
 
     private record SysmonEntry

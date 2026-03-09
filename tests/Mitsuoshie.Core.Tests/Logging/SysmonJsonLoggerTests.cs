@@ -105,6 +105,25 @@ public class SysmonJsonLoggerTests : IDisposable
         Assert.True(File.Exists(deepPath));
     }
 
+    [Fact]
+    public void WriteAlert_RotatesLogWhenExceedingMaxSize()
+    {
+        // 小さい上限（100バイト）でテスト
+        var logger = new SysmonJsonLogger(_logPath, maxLogSizeBytes: 100);
+
+        // 1行書くと100バイトを超える
+        logger.WriteAlert(CreateAlert(), "MITSUOSHIE-2026-0001");
+        Assert.True(new FileInfo(_logPath).Length > 100);
+
+        // 2行目を書くとローテーションが発生
+        logger.WriteAlert(CreateAlert(), "MITSUOSHIE-2026-0002");
+
+        Assert.True(File.Exists(_logPath + ".bak"));
+        // 新しいログファイルには最新の1行のみ
+        var lines = File.ReadAllLines(_logPath);
+        Assert.Single(lines);
+    }
+
     private static MitsuoshieAlert CreateAlert()
     {
         return new MitsuoshieAlert

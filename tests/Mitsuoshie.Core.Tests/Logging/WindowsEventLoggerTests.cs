@@ -73,6 +73,48 @@ public class WindowsEventLoggerTests
     }
 
     [Fact]
+    public void WriteAlert_DoesNotThrow_InNonAdminSession()
+    {
+        var logger = new WindowsEventLogger();
+        var alert = new MitsuoshieAlert
+        {
+            Timestamp = DateTime.UtcNow,
+            HoneyFile = "file",
+            HoneyType = HoneyTokenType.SshKey,
+            EventType = "ReadData",
+            Tampered = false,
+            OriginalHash = "hash",
+            CurrentHash = "hash",
+            AccessMask = "0x1",
+            ProcessId = 123,
+            ProcessName = "test.exe",
+            ProcessPath = "",
+            User = "user",
+            Severity = AlertSeverity.Warning
+        };
+
+        // 非管理者環境では SecurityException が出るが、例外は投げない
+        var ex = Record.Exception(() => logger.WriteAlert(alert));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void WriteServiceStart_DoesNotThrow_InNonAdminSession()
+    {
+        var logger = new WindowsEventLogger();
+        var ex = Record.Exception(() => logger.WriteServiceStart());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void WriteServiceStop_DoesNotThrow_InNonAdminSession()
+    {
+        var logger = new WindowsEventLogger();
+        var ex = Record.Exception(() => logger.WriteServiceStop());
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void FormatMessage_TamperedAlert_ShowsTampered()
     {
         var alert = new MitsuoshieAlert

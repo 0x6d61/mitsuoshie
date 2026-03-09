@@ -4,8 +4,8 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- asInvoker: 管理者として起動すれば全機能有効、一般ユーザーでもFSWフォールバックで動作 -->
-        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+        <!-- highestAvailable: タスクスケジューラ HIGHEST と組み合わせてUACなし昇格起動 -->
+        <requestedExecutionLevel level="highestAvailable" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

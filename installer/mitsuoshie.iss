@@ -47,17 +47,22 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; インストール後に監査ポリシーを有効化
-Filename: "auditpol"; Parameters: "/set /subcategory:""File System"" /success:enable"; \
+; インストール後に監査ポリシーを有効化（GUID指定でロケール非依存）
+Filename: "auditpol"; Parameters: "/set /subcategory:""{{0CCE921D-69AE-11D9-BED3-505054503030}"" /success:enable"; \
   Flags: runhidden waituntilterminated; StatusMsg: "ファイルシステム監査ポリシーを有効化中..."
 
-; Task Scheduler にスタートアップ登録（管理者権限で最高権限タスク作成）
-Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /F"; \
+; Task Scheduler にスタートアップ登録（現在のユーザーで最高権限タスク作成）
+; /RU でインストール実行ユーザーではなく実際のログオンユーザーを指定
+Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /RU ""{username}"" /F"; \
   Flags: runhidden waituntilterminated; Tasks: startup; StatusMsg: "スタートアップタスクを登録中..."
 
-; インストール完了後にアプリを起動
+; EventSource を事前登録（管理者権限で実行されるため成功する）
+Filename: "powershell"; Parameters: "-NoProfile -Command ""if (-not [System.Diagnostics.EventLog]::SourceExists('Mitsuoshie')) {{ [System.Diagnostics.EventLog]::CreateEventSource('Mitsuoshie', 'Application') }}"""; \
+  Flags: runhidden waituntilterminated; StatusMsg: "Windows Event Log ソースを登録中..."
+
+; インストール完了後にアプリを起動（管理者権限でSACL設定を行うため昇格したまま起動）
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} を今すぐ起動する"; \
-  Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
+  Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 ; アンインストール前に Mitsuoshie を停止する（未起動時のエラーを無視）
@@ -71,8 +76,26 @@ Filename: "cmd"; Parameters: "/c schtasks /Delete /TN ""Mitsuoshie"" /F >nul 2>&
 [UninstallDelete]
 ; Mitsuoshie のローカルデータを削除
 Type: filesandordirs; Name: "{localappdata}\Mitsuoshie"
+Type: files; Name: "{app}\settingsdir.txt"
 
 [Code]
+// インストール後に settings.json のパスをインストール先に記録する。
+// アンインストール時に {localappdata} が管理者プロファイルを指す問題を回避。
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  SettingsDir: String;
+  I: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    SettingsDir := ExpandConstant('{localappdata}\Mitsuoshie');
+    SaveStringToFile(ExpandConstant('{app}\settingsdir.txt'), SettingsDir, False);
+    // settingsdir.txt のアクセス権を管理者とSYSTEMのみに制限（ユーザー名パスの情報漏洩防止）
+    Exec('icacls', ExpandConstant('"{app}\settingsdir.txt" /inheritance:r /grant:r SYSTEM:(R) Administrators:(R)'),
+      '', SW_HIDE, ewWaitUntilTerminated, I);
+  end;
+end;
+
 // settings.json の各行から "FilePath" の値を抽出する。
 function ExtractPathFromLine(const Line: String): String;
 var
@@ -84,11 +107,14 @@ begin
   if KeyPos = 0 then
     Exit;
 
-  // ": " の後の値を取得
-  ValStart := Pos('": "', Line);
+  // KeyPos の後にある ": " を探す（他のキーの値を誤取得しないよう）
+  // Length('"FilePath"') = 10
+  ValStart := 0;
+  if KeyPos + Length('"FilePath"') <= Length(Line) then
+    ValStart := Pos('": "', Copy(Line, KeyPos, Length(Line) - KeyPos + 1));
   if ValStart = 0 then
     Exit;
-  ValStart := ValStart + 4;
+  ValStart := KeyPos + ValStart - 1 + 4;
 
   // 閉じ " を探す
   ValEnd := ValStart;
@@ -104,41 +130,28 @@ begin
   Result := Value;
 end;
 
-// ディレクトリが空かどうかチェック
-function IsDirEmpty(const DirPath: String): Boolean;
-var
-  FindRec: TFindRec;
-begin
-  Result := True;
-  if FindFirst(DirPath + '\*', FindRec) then
-  begin
-    try
-      repeat
-        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
-        begin
-          Result := False;
-          Break;
-        end;
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-end;
-
 // アンインストール時に罠ファイルを削除するか確認。
-// ハードコードせず settings.json から実際のパスを読み取ることで
+// settingsdir.txt からインストール時のユーザーの設定ディレクトリを読み取り、
 // 管理者プロファイルと一般ユーザーのプロファイルの不一致問題を回避。
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  SettingsPath, ParentDir, FilePath: String;
+  SettingsPath, SettingsDirFile, FilePath: String;
   Lines: TArrayOfString;
   I: Integer;
   DeleteHoney: Boolean;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    SettingsPath := ExpandConstant('{localappdata}') + '\Mitsuoshie\settings.json';
+    // インストール時に保存した設定ディレクトリパスを読み取る
+    SettingsDirFile := ExpandConstant('{app}\settingsdir.txt');
+    SettingsPath := '';
+    if FileExists(SettingsDirFile) then
+    begin
+      if LoadStringsFromFile(SettingsDirFile, Lines) and (GetArrayLength(Lines) > 0) then
+        SettingsPath := Lines[0] + '\settings.json';
+    end;
+    if SettingsPath = '' then
+      SettingsPath := ExpandConstant('{localappdata}') + '\Mitsuoshie\settings.json';
 
     if not FileExists(SettingsPath) then
       Exit;
@@ -160,11 +173,7 @@ begin
       if (FilePath <> '') and FileExists(FilePath) then
       begin
         DeleteFile(FilePath);
-
-        // 親ディレクトリが空なら削除（.secure, .confidential 等）
-        ParentDir := ExtractFileDir(FilePath);
-        if DirExists(ParentDir) and IsDirEmpty(ParentDir) then
-          RemoveDir(ParentDir);
+        // 親ディレクトリは削除しない（.ssh, .aws 等にユーザーの実ファイルがある可能性）
       end;
     end;
   end;

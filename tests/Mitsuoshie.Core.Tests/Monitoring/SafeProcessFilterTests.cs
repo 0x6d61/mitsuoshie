@@ -75,4 +75,15 @@ public class SafeProcessFilterTests
         // ReadAttributes (0x80) のみのアクセスはどのプロセスでも除外
         Assert.True(_filter.IsSafe("unknown.exe", "0x80", processId: 1234));
     }
+
+    [Theory]
+    [InlineData("0x80", true)]    // ReadAttributes のみ — 除外
+    [InlineData("0x81", false)]   // ReadAttributes + ReadData — アラート対象
+    [InlineData("0x82", false)]   // ReadAttributes + WriteData — アラート対象
+    [InlineData("0xA0", false)]   // ReadAttributes + Execute — アラート対象
+    [InlineData("0x10080", false)] // ReadAttributes + Delete — アラート対象
+    public void IsSafe_CombinedAccessMask_HandledCorrectly(string accessMask, bool expected)
+    {
+        Assert.Equal(expected, _filter.IsSafe("unknown.exe", accessMask, processId: 1234));
+    }
 }

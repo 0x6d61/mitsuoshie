@@ -60,15 +60,17 @@ public class SecurityEventSubscriber
 
     internal static string GetAccessType(string accessMask)
     {
-        return accessMask switch
-        {
-            "0x1" => "ReadData",
-            "0x2" => "WriteData",
-            "0x4" => "AppendData",
-            "0x10000" => "Delete",
-            "0x80" => "ReadAttributes",
-            _ => $"Unknown({accessMask})"
-        };
+        if (!AccessMaskParser.TryParse(accessMask, out var mask))
+            return $"Unknown({accessMask})";
+
+        // フラグを優先度順にチェック（最も重要な操作を優先）
+        if ((mask & 0x10000) != 0) return "Delete";
+        if ((mask & 0x2) != 0) return "WriteData";
+        if ((mask & 0x4) != 0) return "AppendData";
+        if ((mask & 0x1) != 0) return "ReadData";
+        if ((mask & 0x80) != 0) return "ReadAttributes";
+
+        return $"Unknown({accessMask})";
     }
 
     private static string ComputeCurrentHash(string filePath)

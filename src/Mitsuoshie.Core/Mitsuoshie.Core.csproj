@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mitsuoshie.Core.Tests" />
+  </ItemGroup>
+
 </Project>
