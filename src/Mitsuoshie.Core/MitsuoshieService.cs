@@ -73,8 +73,12 @@ public class MitsuoshieService : IDisposable
         // フィルタとサブスクライバを再構築
         RebuildSubscriber();
 
-        // FileSystemWatcher を開始（管理者でなくても書き込み/削除を検知）
-        StartFileWatcher();
+        // 管理者でない場合のみ FileSystemWatcher をフォールバックとして開始
+        // （管理者時は SACL + EventLogWatcher が動くため二重検知を防ぐ）
+        if (!IsElevated)
+        {
+            StartFileWatcher();
+        }
 
         return _store.Tokens.Count;
     }
