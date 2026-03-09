@@ -5,7 +5,7 @@ using Microsoft.Win32;
 namespace Mitsuoshie.App;
 
 [SupportedOSPlatform("windows")]
-public static class StartupManager
+public class StartupManager : IStartupManager
 {
     private const string TaskName = "Mitsuoshie";
     private const string RegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
@@ -15,7 +15,7 @@ public static class StartupManager
     /// 管理者権限がある場合は Task Scheduler（最高権限）で登録。
     /// ない場合はレジストリ Run キーにフォールバック。
     /// </summary>
-    public static void Register()
+    public void Register()
     {
         var exePath = Environment.ProcessPath;
         if (string.IsNullOrEmpty(exePath)) return;
@@ -33,7 +33,7 @@ public static class StartupManager
     /// <summary>
     /// スタートアップから解除する。
     /// </summary>
-    public static void Unregister()
+    public void Unregister()
     {
         UnregisterTaskScheduler();
         UnregisterRegistry();
@@ -42,7 +42,7 @@ public static class StartupManager
     /// <summary>
     /// スタートアップに登録されているか確認する。
     /// </summary>
-    public static bool IsRegistered()
+    public bool IsRegistered()
     {
         return IsTaskSchedulerRegistered() || IsRegistryRegistered();
     }
