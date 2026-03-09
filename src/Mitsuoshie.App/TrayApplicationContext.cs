@@ -37,16 +37,20 @@ public class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            // 罠ファイル配置 + SACL設定
+            // 罠ファイル配置 + SACL設定（管理者時）+ FileSystemWatcher開始
             var totalTokens = _service.DeployTokens();
 
             // 整合性チェック開始
             _service.StartIntegrityTimer();
 
-            // Security Event Log 購読開始
-            StartEventLogWatcher();
+            // 管理者権限がある場合のみ Security Event Log を購読
+            if (_service.IsElevated)
+            {
+                StartEventLogWatcher();
+            }
 
-            UpdateStatus($"監視中（罠ファイル: {totalTokens}個）");
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            UpdateStatus($"{mode}（罠ファイル: {totalTokens}個）");
         }
         catch (Exception ex)
         {
@@ -158,7 +162,8 @@ public class TrayApplicationContext : ApplicationContext
         var redeployItem = new ToolStripMenuItem("罠を再配置", null, (_, _) =>
         {
             var totalTokens = _service.DeployTokens();
-            UpdateStatus($"監視中（罠ファイル: {totalTokens}個 再配置）");
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            UpdateStatus($"{mode}（罠ファイル: {totalTokens}個 再配置）");
         });
         menu.Items.Add(redeployItem);
 

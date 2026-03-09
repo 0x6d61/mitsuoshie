@@ -51,20 +51,21 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "auditpol"; Parameters: "/set /subcategory:""File System"" /success:enable"; \
   Flags: runhidden waituntilterminated; StatusMsg: "ファイルシステム監査ポリシーを有効化中..."
 
+; Task Scheduler にスタートアップ登録（管理者権限で最高権限タスク作成）
+Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /F"; \
+  Flags: runhidden waituntilterminated; Tasks: startup; StatusMsg: "スタートアップタスクを登録中..."
+
 ; インストール完了後にアプリを起動
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} を今すぐ起動する"; \
-  Flags: nowait postinstall skipifsilent
-
-[Registry]
-; スタートアップ登録（タスク選択時）
-Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; \
-  ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; \
-  Flags: uninsdeletevalue; Tasks: startup
+  Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
 
 [UninstallRun]
-; アンインストール前に Mitsuoshie を停止する
-Filename: "taskkill"; Parameters: "/F /IM Mitsuoshie.exe"; \
+; アンインストール前に Mitsuoshie を停止する（未起動時のエラーを無視）
+Filename: "cmd"; Parameters: "/c taskkill /F /IM Mitsuoshie.exe >nul 2>&1 || exit /b 0"; \
   Flags: runhidden waituntilterminated; RunOnceId: "KillMitsuoshie"
+; Task Scheduler のタスクも削除
+Filename: "cmd"; Parameters: "/c schtasks /Delete /TN ""Mitsuoshie"" /F >nul 2>&1 || exit /b 0"; \
+  Flags: runhidden waituntilterminated; RunOnceId: "DeleteTask"
 ; 注意: auditpol disable は行わない（他アプリの監査設定に影響するため）
 
 [UninstallDelete]

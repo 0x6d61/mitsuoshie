@@ -16,7 +16,13 @@ public class MitsuoshieService : IDisposable
     private SettingsStore _store;
     private SecurityEventSubscriber? _subscriber;
     private SafeProcessFilter? _filter;
+    private HoneyFileWatcher? _fileWatcher;
     private Timer? _integrityTimer;
+
+    /// <summary>
+    /// 管理者権限で実行中かどうか。
+    /// </summary>
+    public bool IsElevated { get; private set; }
 
     public event Action<MitsuoshieAlert>? AlertRaised;
 
@@ -38,8 +44,13 @@ public class MitsuoshieService : IDisposable
     /// </summary>
     public int DeployTokens()
     {
-        // 管理者権限がある場合、ファイルシステム監査を有効化
-        TryEnableAuditing();
+        IsElevated = Deployment.SaclConfigurator.IsAdministrator();
+
+        // 管理者権限がある場合、ファイルシステム監査を有効化 + SACL 設定
+        if (IsElevated)
+        {
+            TryEnableAuditing();
+        }
 
         var newTokens = _deployer.DeployAll();
 
@@ -48,16 +59,22 @@ public class MitsuoshieService : IDisposable
             _store.AddToken(token);
         }
 
-        // 全トークン（新規＋既存）に SACL を設定
-        foreach (var path in _store.GetAllPaths())
+        // 管理者の場合のみ SACL を設定
+        if (IsElevated)
         {
-            TrySetSacl(path);
+            foreach (var path in _store.GetAllPaths())
+            {
+                TrySetSacl(path);
+            }
         }
 
         _store.Save();
 
         // フィルタとサブスクライバを再構築
         RebuildSubscriber();
+
+        // FileSystemWatcher を開始（管理者でなくても書き込み/削除を検知）
+        StartFileWatcher();
 
         return _store.Tokens.Count;
     }
@@ -102,12 +119,22 @@ public class MitsuoshieService : IDisposable
     {
         _integrityTimer?.Dispose();
         _integrityTimer = null;
+        _fileWatcher?.Dispose();
+        _fileWatcher = null;
         _eventLogger?.WriteServiceStop();
     }
 
     public void Dispose()
     {
         Stop();
+    }
+
+    private void StartFileWatcher()
+    {
+        _fileWatcher?.Dispose();
+        _fileWatcher = new HoneyFileWatcher(_store);
+        _fileWatcher.FileAccessed += evt => _subscriber?.ProcessEvent(evt);
+        _fileWatcher.Start();
     }
 
     private void TryEnableAuditing()
