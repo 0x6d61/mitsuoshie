@@ -16,7 +16,13 @@ public class MitsuoshieService : IDisposable
     private SettingsStore _store;
     private SecurityEventSubscriber? _subscriber;
     private SafeProcessFilter? _filter;
+    private HoneyFileWatcher? _fileWatcher;
     private Timer? _integrityTimer;
+
+    /// <summary>
+    /// 管理者権限で実行中かどうか。
+    /// </summary>
+    public bool IsElevated { get; private set; }
 
     public event Action<MitsuoshieAlert>? AlertRaised;
 
@@ -33,15 +39,33 @@ public class MitsuoshieService : IDisposable
     }
 
     /// <summary>
-    /// 罠ファイルを配置し、設定を保存する。
+    /// 罠ファイルを配置し、SACL を設定して設定を保存する。
+    /// 戻り値は全トークン数（新規＋既存）。
     /// </summary>
-    public List<DeployedToken> DeployTokens()
+    public int DeployTokens()
     {
-        var results = _deployer.DeployAll();
+        IsElevated = Deployment.SaclConfigurator.IsAdministrator();
 
-        foreach (var token in results)
+        // 管理者権限がある場合、ファイルシステム監査を有効化 + SACL 設定
+        if (IsElevated)
+        {
+            TryEnableAuditing();
+        }
+
+        var newTokens = _deployer.DeployAll();
+
+        foreach (var token in newTokens)
         {
             _store.AddToken(token);
+        }
+
+        // 管理者の場合のみ SACL を設定
+        if (IsElevated)
+        {
+            foreach (var path in _store.GetAllPaths())
+            {
+                TrySetSacl(path);
+            }
         }
 
         _store.Save();
@@ -49,7 +73,14 @@ public class MitsuoshieService : IDisposable
         // フィルタとサブスクライバを再構築
         RebuildSubscriber();
 
-        return results;
+        // 管理者でない場合のみ FileSystemWatcher をフォールバックとして開始
+        // （管理者時は SACL + EventLogWatcher が動くため二重検知を防ぐ）
+        if (!IsElevated)
+        {
+            StartFileWatcher();
+        }
+
+        return _store.Tokens.Count;
     }
 
     /// <summary>
@@ -92,12 +123,47 @@ public class MitsuoshieService : IDisposable
     {
         _integrityTimer?.Dispose();
         _integrityTimer = null;
+        _fileWatcher?.Dispose();
+        _fileWatcher = null;
         _eventLogger?.WriteServiceStop();
     }
 
     public void Dispose()
     {
         Stop();
+    }
+
+    private void StartFileWatcher()
+    {
+        _fileWatcher?.Dispose();
+        _fileWatcher = new HoneyFileWatcher(_store);
+        _fileWatcher.FileAccessed += evt => _subscriber?.ProcessEvent(evt);
+        _fileWatcher.Start();
+    }
+
+    private void TryEnableAuditing()
+    {
+        try
+        {
+            if (SaclConfigurator.IsAdministrator())
+                SaclConfigurator.EnableFileSystemAuditing();
+        }
+        catch
+        {
+            // 監査ポリシー有効化に失敗しても続行（インストーラーで設定済みの場合がある）
+        }
+    }
+
+    private static void TrySetSacl(string filePath)
+    {
+        try
+        {
+            SaclConfigurator.SetAuditRule(filePath);
+        }
+        catch
+        {
+            // SACL 設定には管理者権限が必要。失敗しても続行。
+        }
     }
 
     private void RebuildSubscriber()

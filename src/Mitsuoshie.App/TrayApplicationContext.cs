@@ -1,4 +1,5 @@
 using System.Diagnostics.Eventing.Reader;
+using System.Reflection;
 using Mitsuoshie.Core;
 using Mitsuoshie.Core.Models;
 using Mitsuoshie.Core.Monitoring;
@@ -9,6 +10,8 @@ public class TrayApplicationContext : ApplicationContext
 {
     private readonly NotifyIcon _notifyIcon;
     private readonly MitsuoshieService _service;
+    private readonly Icon _appIcon;
+    private readonly Icon _alertIcon;
     private EventLogWatcher? _eventWatcher;
 
     public TrayApplicationContext(MitsuoshieServiceConfig config)
@@ -16,9 +19,12 @@ public class TrayApplicationContext : ApplicationContext
         _service = new MitsuoshieService(config);
         _service.AlertRaised += OnAlertRaised;
 
+        _appIcon = LoadAppIcon();
+        _alertIcon = CreateAlertIcon();
+
         _notifyIcon = new NotifyIcon
         {
-            Icon = CreateGreenIcon(),
+            Icon = _appIcon,
             Text = "Mitsuoshie — 監視中",
             Visible = true,
             ContextMenuStrip = CreateContextMenu()
@@ -31,16 +37,20 @@ public class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            // 罠ファイル配置
-            var deployed = _service.DeployTokens();
+            // 罠ファイル配置 + SACL設定（管理者時）+ FileSystemWatcher開始
+            var totalTokens = _service.DeployTokens();
 
             // 整合性チェック開始
             _service.StartIntegrityTimer();
 
-            // Security Event Log 購読開始
-            StartEventLogWatcher();
+            // 管理者権限がある場合のみ Security Event Log を購読
+            if (_service.IsElevated)
+            {
+                StartEventLogWatcher();
+            }
 
-            UpdateStatus($"監視中（罠ファイル: {deployed.Count}個）");
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            UpdateStatus($"{mode}（罠ファイル: {totalTokens}個）");
         }
         catch (Exception ex)
         {
@@ -77,11 +87,18 @@ public class TrayApplicationContext : ApplicationContext
         try
         {
             var record = e.EventRecord;
+            // Event ID 4663 のプロパティインデックス:
+            //  [0] SubjectUserSid     [1] SubjectUserName
+            //  [2] SubjectDomainName  [3] SubjectLogonId
+            //  [4] ObjectServer       [5] ObjectType
+            //  [6] ObjectName         [7] HandleId
+            //  [8] AccessList         [9] AccessMask
+            // [10] ProcessId         [11] ProcessName
             var evt = new SecurityEventData
             {
                 ObjectName = record.Properties[6]?.Value?.ToString() ?? "",
                 AccessMask = record.Properties[9]?.Value?.ToString() ?? "",
-                ProcessId = Convert.ToInt32(record.Properties[8]?.Value ?? 0),
+                ProcessId = Convert.ToInt32(record.Properties[10]?.Value ?? 0),
                 ProcessName = record.Properties[11]?.Value?.ToString() ?? "",
                 UserName = record.Properties[1]?.Value?.ToString() ?? "",
                 Timestamp = record.TimeCreated?.ToUniversalTime()
@@ -98,16 +115,16 @@ public class TrayApplicationContext : ApplicationContext
     private void OnAlertRaised(MitsuoshieAlert alert)
     {
         // UIスレッドで実行
-        _notifyIcon.Icon = CreateRedIcon();
+        _notifyIcon.Icon = _alertIcon;
         _notifyIcon.Text = $"Mitsuoshie — 検知あり！ {alert.ProcessName}";
 
         ShowAlertNotification(alert);
 
-        // 10秒後に緑に戻す
+        // 10秒後に通常アイコンに戻す
         var timer = new System.Windows.Forms.Timer { Interval = 10000 };
         timer.Tick += (_, _) =>
         {
-            _notifyIcon.Icon = CreateGreenIcon();
+            _notifyIcon.Icon = _appIcon;
             _notifyIcon.Text = "Mitsuoshie — 監視中";
             timer.Stop();
             timer.Dispose();
@@ -144,8 +161,9 @@ public class TrayApplicationContext : ApplicationContext
 
         var redeployItem = new ToolStripMenuItem("罠を再配置", null, (_, _) =>
         {
-            var deployed = _service.DeployTokens();
-            UpdateStatus($"監視中（罠ファイル: {deployed.Count}個 再配置）");
+            var totalTokens = _service.DeployTokens();
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            UpdateStatus($"{mode}（罠ファイル: {totalTokens}個 再配置）");
         });
         menu.Items.Add(redeployItem);
 
@@ -197,9 +215,25 @@ public class TrayApplicationContext : ApplicationContext
         };
     }
 
-    private static Icon CreateGreenIcon()
+    /// <summary>
+    /// 埋め込みリソースからアプリアイコンを読み込む。
+    /// 読み込みに失敗した場合はフォールバックアイコンを生成する。
+    /// </summary>
+    private static Icon LoadAppIcon()
     {
-        // 簡易的なプログラマティックアイコン生成（16x16 緑丸）
+        try
+        {
+            using var stream = Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("Mitsuoshie.app.ico");
+            if (stream is not null)
+                return new Icon(stream, 16, 16);
+        }
+        catch
+        {
+            // フォールバック
+        }
+
+        // フォールバック: 緑丸アイコン
         var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
@@ -207,12 +241,16 @@ public class TrayApplicationContext : ApplicationContext
         return Icon.FromHandle(bmp.GetHicon());
     }
 
-    private static Icon CreateRedIcon()
+    /// <summary>
+    /// アラート時の赤い警告アイコンを生成する。
+    /// </summary>
+    private static Icon CreateAlertIcon()
     {
         var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Red, 1, 1, 14, 14);
+        g.DrawString("!", new Font("Arial", 10, FontStyle.Bold), Brushes.White, 2, 0);
         return Icon.FromHandle(bmp.GetHicon());
     }
 

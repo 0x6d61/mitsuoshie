@@ -41,6 +41,11 @@ public class SettingsStore
         return _tokensByPath.ContainsKey(filePath);
     }
 
+    public IReadOnlyList<string> GetAllPaths()
+    {
+        return _tokensByPath.Keys.ToList();
+    }
+
     public void Save()
     {
         var dir = Path.GetDirectoryName(_filePath);

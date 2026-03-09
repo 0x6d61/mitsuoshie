@@ -12,9 +12,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Mitsuoshie</AssemblyName>
     <Product>Mitsuoshie</Product>
+    <Version>0.0.1</Version>
     <Description>Windows向けハニートークン検知ツール</Description>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="app.ico" LogicalName="Mitsuoshie.app.ico" />
+  </ItemGroup>
 
 </Project>

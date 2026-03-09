@@ -12,6 +12,15 @@ public static class SaclConfigurator
     /// 罠ファイルに NTFS 監査 ACL を設定する。
     /// Everyone に対する ReadData, WriteData, Delete, AppendData を監査対象にする。
     /// </summary>
+    private static readonly SecurityIdentifier EveryoneSid =
+        new(WellKnownSidType.WorldSid, null);
+
+    private static readonly FileSystemRights AuditRights =
+        FileSystemRights.ReadData
+        | FileSystemRights.WriteData
+        | FileSystemRights.Delete
+        | FileSystemRights.AppendData;
+
     public static void SetAuditRule(string filePath)
     {
         ArgumentNullException.ThrowIfNull(filePath);
@@ -23,17 +32,42 @@ public static class SaclConfigurator
         var fileInfo = new FileInfo(filePath);
         var security = fileInfo.GetAccessControl(AccessControlSections.Audit);
 
+        // 既に同等のルールがあればスキップ（べき等）
+        if (HasMatchingAuditRule(security))
+            return;
+
         var auditRule = new FileSystemAuditRule(
-            identity: new SecurityIdentifier(WellKnownSidType.WorldSid, null),
-            fileSystemRights: FileSystemRights.ReadData
-                            | FileSystemRights.WriteData
-                            | FileSystemRights.Delete
-                            | FileSystemRights.AppendData,
+            identity: EveryoneSid,
+            fileSystemRights: AuditRights,
             flags: AuditFlags.Success
         );
 
         security.AddAuditRule(auditRule);
         fileInfo.SetAccessControl(security);
+    }
+
+    /// <summary>
+    /// 既に同等の監査ルールが設定されているかチェックする。
+    /// </summary>
+    private static bool HasMatchingAuditRule(FileSystemSecurity security)
+    {
+        var rules = security.GetAuditRules(
+            includeExplicit: true,
+            includeInherited: false,
+            targetType: typeof(SecurityIdentifier));
+
+        foreach (FileSystemAuditRule rule in rules)
+        {
+            if (rule.IdentityReference is SecurityIdentifier sid
+                && sid == EveryoneSid
+                && (rule.FileSystemRights & AuditRights) == AuditRights
+                && rule.AuditFlags.HasFlag(AuditFlags.Success))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
