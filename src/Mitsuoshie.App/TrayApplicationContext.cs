@@ -235,8 +235,8 @@ public class TrayApplicationContext : ApplicationContext
     {
         if (value is null) return 0;
         if (value is int i) return i;
-        if (value is long l) return (int)l;
-        if (value is ulong ul) return (int)ul;
+        if (value is long l) return unchecked((int)l);
+        if (value is ulong ul) return unchecked((int)ul);
 
         var str = value.ToString() ?? "";
         if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))

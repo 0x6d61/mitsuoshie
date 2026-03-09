@@ -4,8 +4,8 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- requireAdministrator: SACL設定・Security Event Log購読に管理者権限が必須 -->
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <!-- highestAvailable: タスクスケジューラ HIGHEST と組み合わせてUACなし昇格起動 -->
+        <requestedExecutionLevel level="highestAvailable" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

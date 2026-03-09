@@ -83,14 +83,26 @@ public class AlertGeneratorTests
         Assert.False(generator.ShouldSuppress(alert2)); // 期限切れなので抑制されない
     }
 
-    private static MitsuoshieAlert CreateAlert(string processName, int processId, string honeyFile)
+    [Fact]
+    public void ShouldSuppress_SameProcessSameFile_DifferentEventType_ReturnsFalse()
+    {
+        var generator = new AlertGenerator(suppressDuration: TimeSpan.FromMinutes(5));
+        var readAlert = CreateAlert("malware.exe", 1234, @"C:\test\file.txt", "ReadData");
+        var deleteAlert = CreateAlert("malware.exe", 1234, @"C:\test\file.txt", "Delete");
+
+        generator.ShouldSuppress(readAlert);
+        // 同一プロセス・同一ファイルでもアクセス種別が異なれば抑制されない
+        Assert.False(generator.ShouldSuppress(deleteAlert));
+    }
+
+    private static MitsuoshieAlert CreateAlert(string processName, int processId, string honeyFile, string eventType = "ReadData")
     {
         return new MitsuoshieAlert
         {
             Timestamp = DateTime.UtcNow,
             HoneyFile = honeyFile,
             HoneyType = HoneyTokenType.AwsCredential,
-            EventType = "ReadData",
+            EventType = eventType,
             Tampered = false,
             OriginalHash = "hash",
             CurrentHash = "hash",

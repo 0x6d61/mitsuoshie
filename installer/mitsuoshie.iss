@@ -103,11 +103,13 @@ begin
   if KeyPos = 0 then
     Exit;
 
-  // ": " の後の値を取得
-  ValStart := Pos('": "', Line);
+  // KeyPos の後にある ": " を探す（他のキーの値を誤取得しないよう）
+  ValStart := 0;
+  if KeyPos + 10 <= Length(Line) then
+    ValStart := Pos('": "', Copy(Line, KeyPos, Length(Line) - KeyPos + 1));
   if ValStart = 0 then
     Exit;
-  ValStart := ValStart + 4;
+  ValStart := KeyPos + ValStart - 1 + 4;
 
   // 閉じ " を探す
   ValEnd := ValStart;

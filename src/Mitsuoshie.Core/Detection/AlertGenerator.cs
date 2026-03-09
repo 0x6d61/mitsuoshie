@@ -30,7 +30,7 @@ public class AlertGenerator
     /// </summary>
     public bool ShouldSuppress(MitsuoshieAlert alert)
     {
-        var key = $"{alert.ProcessName}|{alert.ProcessId}|{alert.HoneyFile}";
+        var key = $"{alert.ProcessName}|{alert.ProcessId}|{alert.EventType}|{alert.HoneyFile}";
 
         if (_lastAlertTimes.TryGetValue(key, out var lastTime))
         {
