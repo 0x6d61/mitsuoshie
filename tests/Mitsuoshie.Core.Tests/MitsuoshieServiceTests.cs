@@ -81,9 +81,9 @@ public class MitsuoshieServiceTests : IDisposable
     }
 
     [Fact]
-    public void DeployTokens_SkipsExistingFiles_ButCountsInTotal()
+    public void DeployTokens_ReregistersExistingFiles()
     {
-        // 1つ先に配置
+        // 1つ先に配置（再インストールシナリオ）
         var awsPath = Path.Combine(_testDir, "profile", ".aws", "credentials.bak");
         Directory.CreateDirectory(Path.GetDirectoryName(awsPath)!);
         File.WriteAllText(awsPath, "existing");
@@ -92,10 +92,9 @@ public class MitsuoshieServiceTests : IDisposable
         var service = new MitsuoshieService(config);
         var totalCount = service.DeployTokens();
 
-        // AWSは既存ファイルがあるのでスキップされるが、他のトークンは配置される
+        // 既存ファイルも再登録され、全トークンが監視対象になる
         var loaded = SettingsStore.Load(_settingsPath);
-        Assert.DoesNotContain(loaded.Tokens, t => t.HoneyType == HoneyTokenType.AwsCredential);
-        // 合計数はAWS以外のトークン数
+        Assert.Contains(loaded.Tokens, t => t.HoneyType == HoneyTokenType.AwsCredential);
         Assert.Equal(loaded.Tokens.Count, totalCount);
     }
 

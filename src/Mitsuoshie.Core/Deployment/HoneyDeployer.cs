@@ -25,10 +25,16 @@ public class HoneyDeployer
         var relativePath = HoneyTemplates.GetRelativePath(type);
         var fullPath = Path.Combine(_userProfileDir, relativePath);
 
-        // 既存ファイルは絶対に上書きしない
+        // 既存ファイルがある場合は上書きせず、ハッシュを計算して再登録用トークンを返す
         if (File.Exists(fullPath))
         {
-            return null;
+            var existingHash = ComputeSHA256(fullPath);
+            return new DeployedToken(
+                FilePath: fullPath,
+                HoneyType: type,
+                OriginalHash: existingHash,
+                DeployedAt: DateTime.UtcNow
+            );
         }
 
         // ディレクトリ作成

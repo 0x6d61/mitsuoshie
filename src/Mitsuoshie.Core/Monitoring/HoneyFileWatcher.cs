@@ -79,16 +79,10 @@ public class HoneyFileWatcher : IDisposable
 
     public void Dispose() => Stop();
 
-    private int _eventSequence;
-
     private void OnFileEvent(string filePath, string accessType)
     {
         if (!_store.ContainsPath(filePath))
             return;
-
-        // 各イベントに一意のシーケンス番号を付与（重複抑制で別イベントが
-        // 同一キーにならないようにする）
-        var seq = Interlocked.Increment(ref _eventSequence);
 
         var evt = new SecurityEventData
         {
@@ -99,7 +93,7 @@ public class HoneyFileWatcher : IDisposable
                 "Delete" => "0x10000",
                 _ => "0x1"
             },
-            ProcessId = seq,
+            ProcessId = 0,
             ProcessName = "FileSystemWatcher",
             UserName = Environment.UserName,
             Timestamp = DateTime.UtcNow
