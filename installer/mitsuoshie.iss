@@ -51,8 +51,9 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "auditpol"; Parameters: "/set /subcategory:""File System"" /success:enable"; \
   Flags: runhidden waituntilterminated; StatusMsg: "ファイルシステム監査ポリシーを有効化中..."
 
-; Task Scheduler にスタートアップ登録（管理者権限で最高権限タスク作成）
-Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /F"; \
+; Task Scheduler にスタートアップ登録（現在のユーザーで最高権限タスク作成）
+; /RU でインストール実行ユーザーではなく実際のログオンユーザーを指定
+Filename: "schtasks"; Parameters: "/Create /TN ""{#MyAppName}"" /TR """"""{app}\{#MyAppExeName}"""""" /SC ONLOGON /RL HIGHEST /RU ""{username}"" /F"; \
   Flags: runhidden waituntilterminated; Tasks: startup; StatusMsg: "スタートアップタスクを登録中..."
 
 ; インストール完了後にアプリを起動

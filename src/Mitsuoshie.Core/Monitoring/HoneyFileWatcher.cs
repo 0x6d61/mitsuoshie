@@ -6,6 +6,8 @@ namespace Mitsuoshie.Core.Monitoring;
 /// FileSystemWatcher を使った罠ファイル監視。
 /// 管理者権限不要で書き込み・削除・リネームを検知する。
 /// SACL + Event ID 4663 が使えない場合のフォールバック。
+/// 注意: FileSystemWatcher はファイルの読み取り（open for read）を検知できない。
+/// 読み取りアクセスの検知には管理者権限 + SACL 監査が必要。
 /// </summary>
 public class HoneyFileWatcher : IDisposable
 {

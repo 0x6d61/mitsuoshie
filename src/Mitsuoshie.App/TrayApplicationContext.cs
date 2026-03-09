@@ -49,7 +49,7 @@ public class TrayApplicationContext : ApplicationContext
                 StartEventLogWatcher();
             }
 
-            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視（書込/削除のみ）";
             UpdateStatus($"{mode}（罠ファイル: {totalTokens}個）");
         }
         catch (Exception ex)
@@ -174,7 +174,7 @@ public class TrayApplicationContext : ApplicationContext
         var redeployItem = new ToolStripMenuItem("罠を再配置", null, (_, _) =>
         {
             var totalTokens = _service.DeployTokens();
-            var mode = _service.IsElevated ? "完全監視" : "簡易監視";
+            var mode = _service.IsElevated ? "完全監視" : "簡易監視（書込/削除のみ）";
             UpdateStatus($"{mode}（罠ファイル: {totalTokens}個 再配置）");
         });
         menu.Items.Add(redeployItem);
