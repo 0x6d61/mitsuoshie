@@ -10,14 +10,17 @@ public class WindowsEventLogger
 {
     private const string SourceName = "Mitsuoshie";
     private const string LogName = "Application";
+    private bool _sourceAvailable;
+    private bool _sourceChecked;
 
     /// <summary>
     /// Windows Event Log にアラートを書き込む。
     /// EventSource の登録には管理者権限が必要。
+    /// 非管理者セッションでは何もしない。
     /// </summary>
     public void WriteAlert(MitsuoshieAlert alert)
     {
-        EnsureSourceExists();
+        if (!TryEnsureSource()) return;
 
         var eventId = GetEventId(alert.EventType);
         var message = FormatMessage(alert);
@@ -31,7 +34,7 @@ public class WindowsEventLogger
     /// </summary>
     public void WriteServiceStart()
     {
-        EnsureSourceExists();
+        if (!TryEnsureSource()) return;
         EventLog.WriteEntry(SourceName, "Mitsuoshie service started.", EventLogEntryType.Information, 2000);
     }
 
@@ -40,7 +43,7 @@ public class WindowsEventLogger
     /// </summary>
     public void WriteServiceStop()
     {
-        EnsureSourceExists();
+        if (!TryEnsureSource()) return;
         EventLog.WriteEntry(SourceName, "Mitsuoshie service stopped.", EventLogEntryType.Information, 2001);
     }
 
@@ -79,11 +82,25 @@ public class WindowsEventLogger
         return sb.ToString();
     }
 
-    private static void EnsureSourceExists()
+    private bool TryEnsureSource()
     {
-        if (!EventLog.SourceExists(SourceName))
+        if (_sourceChecked) return _sourceAvailable;
+        _sourceChecked = true;
+
+        try
         {
-            EventLog.CreateEventSource(SourceName, LogName);
+            if (!EventLog.SourceExists(SourceName))
+            {
+                EventLog.CreateEventSource(SourceName, LogName);
+            }
+            _sourceAvailable = true;
         }
+        catch (System.Security.SecurityException)
+        {
+            // 非管理者セッションでは EventLog ソースの確認・作成に失敗する
+            _sourceAvailable = false;
+        }
+
+        return _sourceAvailable;
     }
 }

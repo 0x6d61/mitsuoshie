@@ -98,7 +98,7 @@ public class TrayApplicationContext : ApplicationContext
             {
                 ObjectName = record.Properties[6]?.Value?.ToString() ?? "",
                 AccessMask = record.Properties[9]?.Value?.ToString() ?? "",
-                ProcessId = Convert.ToInt32(record.Properties[10]?.Value ?? 0),
+                ProcessId = ParseProcessId(record.Properties[10]?.Value),
                 ProcessName = record.Properties[11]?.Value?.ToString() ?? "",
                 UserName = record.Properties[1]?.Value?.ToString() ?? "",
                 Timestamp = record.TimeCreated?.ToUniversalTime()
@@ -114,7 +114,19 @@ public class TrayApplicationContext : ApplicationContext
 
     private void OnAlertRaised(MitsuoshieAlert alert)
     {
-        // UIスレッドで実行
+        // バックグラウンドスレッドから呼ばれるため、UIスレッドにマーシャリング
+        if (_notifyIcon.ContextMenuStrip?.InvokeRequired == true)
+        {
+            _notifyIcon.ContextMenuStrip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
+        }
+        else
+        {
+            OnAlertRaisedOnUiThread(alert);
+        }
+    }
+
+    private void OnAlertRaisedOnUiThread(MitsuoshieAlert alert)
+    {
         _notifyIcon.Icon = _alertIcon;
         _notifyIcon.Text = $"Mitsuoshie — 検知あり！ {alert.ProcessName}";
 
@@ -213,6 +225,27 @@ public class TrayApplicationContext : ApplicationContext
             "AppendData" => "追記",
             _ => "アクセス"
         };
+    }
+
+    /// <summary>
+    /// Event ID 4663 の ProcessId を安全にパースする。
+    /// 値は int、long、または "0x1A4" のような hex 文字列の場合がある。
+    /// </summary>
+    private static int ParseProcessId(object? value)
+    {
+        if (value is null) return 0;
+        if (value is int i) return i;
+        if (value is long l) return (int)l;
+        if (value is ulong ul) return (int)ul;
+
+        var str = value.ToString() ?? "";
+        if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            return int.TryParse(str.AsSpan(2), System.Globalization.NumberStyles.HexNumber, null, out var hex)
+                ? hex : 0;
+        }
+
+        return int.TryParse(str, out var dec) ? dec : 0;
     }
 
     /// <summary>
