@@ -327,6 +327,8 @@ public class TrayApplicationContext : ApplicationContext
             _eventWatcher?.Dispose();
             _service.Dispose();
             _notifyIcon.Dispose();
+            _appIcon.Dispose();
+            _alertIcon.Dispose();
         }
         base.Dispose(disposing);
     }

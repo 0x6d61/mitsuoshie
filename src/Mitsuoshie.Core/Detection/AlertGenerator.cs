@@ -19,7 +19,7 @@ public class AlertGenerator
     /// </summary>
     public string GenerateAlertId()
     {
-        var num = Interlocked.Increment(ref _counter);
+        var num = unchecked((uint)Interlocked.Increment(ref _counter));
         return $"MITSUOSHIE-{DateTime.UtcNow.Year}-{num:D4}";
     }
 
