@@ -63,6 +63,21 @@ public class StartupMenuTests
         Assert.Equal("スタートアップに登録済み", item.Text);
     }
 
+    [Fact]
+    public void ClickMenuItem_WhenRegisterThrows_CallsOnError()
+    {
+        var fake = new ThrowingStartupManager();
+        string? capturedError = null;
+        var item = (ToolStripMenuItem)StartupMenuHelper.CreateStartupMenuItem(
+            fake, error => capturedError = error);
+
+        var exception = Record.Exception(() => item.PerformClick());
+
+        Assert.Null(exception);
+        Assert.False(item.Checked);
+        Assert.Contains("schtasks failed", capturedError);
+    }
+
     private class FakeStartupManager : IStartupManager
     {
         private bool _isRegistered;
@@ -84,5 +99,12 @@ public class StartupMenuTests
         }
 
         public bool IsRegistered() => _isRegistered;
+    }
+
+    private class ThrowingStartupManager : IStartupManager
+    {
+        public void Register() => throw new InvalidOperationException("schtasks failed");
+        public void Unregister() => throw new InvalidOperationException("schtasks failed");
+        public bool IsRegistered() => false;
     }
 }

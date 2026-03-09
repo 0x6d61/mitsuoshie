@@ -43,14 +43,22 @@ public class TrayApplicationContext : ApplicationContext
 
     private void Initialize()
     {
+        // スタートアップに自動登録（失敗しても監視は続行）
         try
         {
-            // スタートアップに自動登録（未登録の場合のみ）
             if (!_startupManager.IsRegistered())
             {
                 _startupManager.Register();
             }
+        }
+        catch (Exception ex)
+        {
+            ShowErrorNotification("スタートアップ登録エラー",
+                $"自動起動の登録に失敗しました（監視は継続します）: {ex.Message}");
+        }
 
+        try
+        {
             // 罠ファイル配置 + SACL設定（管理者時）+ FileSystemWatcher開始
             var totalTokens = _service.DeployTokens();
 
@@ -219,7 +227,8 @@ public class TrayApplicationContext : ApplicationContext
         });
         menu.Items.Add(checkItem);
 
-        menu.Items.Add(StartupMenuHelper.CreateStartupMenuItem(_startupManager));
+        menu.Items.Add(StartupMenuHelper.CreateStartupMenuItem(_startupManager,
+            error => ShowErrorNotification("スタートアップ設定エラー", error)));
 
         menu.Items.Add(new ToolStripSeparator());
 

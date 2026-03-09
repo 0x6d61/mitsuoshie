@@ -5,7 +5,9 @@ namespace Mitsuoshie.App;
 /// </summary>
 public static class StartupMenuHelper
 {
-    public static ToolStripItem CreateStartupMenuItem(IStartupManager startupManager)
+    public static ToolStripItem CreateStartupMenuItem(
+        IStartupManager startupManager,
+        Action<string>? onError = null)
     {
         var registered = startupManager.IsRegistered();
         var item = new ToolStripMenuItem
@@ -16,18 +18,25 @@ public static class StartupMenuHelper
 
         item.Click += (_, _) =>
         {
-            if (startupManager.IsRegistered())
+            try
             {
-                startupManager.Unregister();
-            }
-            else
-            {
-                startupManager.Register();
-            }
+                if (startupManager.IsRegistered())
+                {
+                    startupManager.Unregister();
+                }
+                else
+                {
+                    startupManager.Register();
+                }
 
-            var nowRegistered = startupManager.IsRegistered();
-            item.Checked = nowRegistered;
-            item.Text = nowRegistered ? "スタートアップに登録済み" : "スタートアップに登録";
+                var nowRegistered = startupManager.IsRegistered();
+                item.Checked = nowRegistered;
+                item.Text = nowRegistered ? "スタートアップに登録済み" : "スタートアップに登録";
+            }
+            catch (Exception ex)
+            {
+                onError?.Invoke(ex.Message);
+            }
         };
 
         return item;
