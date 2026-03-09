@@ -48,7 +48,7 @@ public class SafeProcessFilter
             return false;
 
         // ReadAttributes ビットが立っていて、かつデータアクセスビットが立っていない
-        const int dataAccessBits = 0x1 | 0x2 | 0x4 | 0x10000; // Read|Write|Append|Delete
+        const int dataAccessBits = 0x1 | 0x2 | 0x4 | 0x20 | 0x10000; // Read|Write|Append|Execute|Delete
         return (mask & ReadAttributesFlag) != 0 && (mask & dataAccessBits) == 0;
     }
 }

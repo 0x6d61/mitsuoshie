@@ -120,13 +120,20 @@ public class TrayApplicationContext : ApplicationContext
         if (strip is null || strip.IsDisposed)
             return;
 
-        if (strip.InvokeRequired)
+        try
         {
-            strip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
+            if (strip.InvokeRequired)
+            {
+                strip.BeginInvoke(() => OnAlertRaisedOnUiThread(alert));
+            }
+            else
+            {
+                OnAlertRaisedOnUiThread(alert);
+            }
         }
-        else
+        catch (ObjectDisposedException)
         {
-            OnAlertRaisedOnUiThread(alert);
+            // シャットダウン中に strip が破棄された場合は無視
         }
     }
 
@@ -308,7 +315,8 @@ public class TrayApplicationContext : ApplicationContext
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.Transparent);
         g.FillEllipse(Brushes.Red, 1, 1, 14, 14);
-        g.DrawString("!", new Font("Arial", 10, FontStyle.Bold), Brushes.White, 2, 0);
+        using var font = new Font("Arial", 10, FontStyle.Bold);
+        g.DrawString("!", font, Brushes.White, 2, 0);
         return CreateIconFromBitmap(bmp);
     }
 

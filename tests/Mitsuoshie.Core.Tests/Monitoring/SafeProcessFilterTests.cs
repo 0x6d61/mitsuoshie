@@ -80,6 +80,7 @@ public class SafeProcessFilterTests
     [InlineData("0x80", true)]    // ReadAttributes のみ — 除外
     [InlineData("0x81", false)]   // ReadAttributes + ReadData — アラート対象
     [InlineData("0x82", false)]   // ReadAttributes + WriteData — アラート対象
+    [InlineData("0xA0", false)]   // ReadAttributes + Execute — アラート対象
     [InlineData("0x10080", false)] // ReadAttributes + Delete — アラート対象
     public void IsSafe_CombinedAccessMask_HandledCorrectly(string accessMask, bool expected)
     {
